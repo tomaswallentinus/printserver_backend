@@ -142,3 +142,10 @@ Skrivare som lades till *före* att VLAN 10 lades in har inte nödvändigtvis `A
 Webservice-delen använder en API-token för att skydda endpoints som `/list` och `/cleanup`.
 Håll hemligheter utanför versionshanterade filer och se till att token inte exponeras i loggar eller delad dokumentation.
 
+Du måste skapa filen `/srv/printserver/.env` med token innan webservice startas.
+Variabelnamnet ska vara:
+
+```bash
+API_TOKEN=<ditt_losenord>
+```
+
