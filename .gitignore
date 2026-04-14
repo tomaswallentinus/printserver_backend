@@ -1,10 +1,13 @@
 .env
 .cursorrules
 
-logs/
-data/
-*.log
+# Keep directory structure, ignore file contents
+logs/*
+!logs/.gitkeep
+data/*
+!data/.gitkeep
 
+*.log
 *.sqlite
 *.db
 
