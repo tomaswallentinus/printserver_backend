@@ -1,0 +1,12 @@
+.env
+.cursorrules
+
+logs/
+data/
+*.log
+
+*.sqlite
+*.db
+
+__pycache__/
+*.pyc
