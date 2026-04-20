@@ -16,7 +16,61 @@ Det här projektet innehåller ett enkelt hanteringsskript samt ett antal Python
 - **CUPS** installerat och igång.
 - **Python 3**.
 - **pycups** (Python-modulen `cups`).
+- **sqlite3** (CLI-verktyg) för VLAN-databasen i `servicectl.sh`.
 - För e-postnotiser: **lokal MTA** med `sendmail` (t.ex. Postfix/Exim) eller kompatibelt `sendmail`-kommando.
+
+## Installera servern (manuell)
+
+Exempel för Ubuntu/Debian:
+
+1) Installera paket:
+
+```bash
+sudo apt update
+sudo apt install -y cups python3 python3-pip python3-cups sqlite3 postfix
+```
+
+`cups-browsed` är **valfritt** och behövs främst för auto-upptäckt av nätverksskrivare:
+
+```bash
+sudo apt install -y cups-browsed
+```
+
+2) Skapa lokal miljöfil för webservice:
+
+```bash
+cat > /srv/printserver/.env <<'EOF'
+API_TOKEN=<ditt_losenord>
+EOF
+```
+
+3) Aktivera och starta tjänster:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now cups printapi.service
+```
+
+Om `cups-browsed` används:
+
+```bash
+sudo systemctl enable --now cups-browsed
+```
+
+4) Verifiera installationen:
+
+```bash
+sudo systemctl status cups --no-pager
+sudo systemctl status printapi.service --no-pager
+sudo journalctl -u printapi.service -n 100 --no-pager
+ss -lntp | grep :5000
+```
+
+Kontrollera även att CUPS-webben svarar och att `servicectl.sh` fungerar:
+
+```bash
+bash /srv/printserver/servicectl.sh
+```
 
 ## servicectl.sh
 
@@ -26,13 +80,39 @@ Kör:
 bash /srv/printserver/servicectl.sh
 ```
 
-Relevanta menyval (urval):
+Menyval:
 
-- **7) Tömma en skrivares kö**: avbryter alla jobb i vald kö (kan välja via nummer eller namn).
-- **8) Aktivera skrivare**: visar bara pausade/disabled skrivare och aktiverar vald kö.
+- **1) Starta om CUPS**: startar om CUPS-tjänsten.
+- **2) Starta om Avahi**: startar om Avahi-tjänsten.
+- **3) Visa aktiva skrivare**: visar installerade skrivare och default-skrivare.
+- **4) Visa status för alla köer**: visar detaljerad köstatus.
+- **5) Debug/log (senaste 50 raderna)**: visar senaste CUPS-loggar.
+- **6) Sätt Duplex + Shared på alla skrivare**: sätter duplex och delning på samtliga köer.
+- **7) Tömma en skrivares kö**: avbryter alla jobb i vald kö.
+- **8) Aktivera skrivare (ta bort paus)**: aktiverar pausad/disabled skrivare.
 - **9) Visa pågående jobb (ålder i kö)**: kör `scripts/list_jobs_with_age.py` (via sudo).
+- **10) Lägg till ny skrivare**: skapar ny CUPS-kö och kopplar standard-VLAN enligt skrivartyp.
 - **11) Rensa fastnade jobb (DRY_RUN)**: kör `scripts/purge_stuck_jobs.py` utan att radera.
 - **12) Rensa fastnade jobb (SKARPT)**: kör `scripts/purge_stuck_jobs.py` och raderar jobb (kräver bekräftelse).
+- **13) Byt skrivare till IPP Everywhere**: försöker byta modell från raw till IPP Everywhere.
+- **14) Hantera VLAN-katalog**: lägg till/ändra/ta bort VLAN (namn + CIDR) i lokal databas.
+- **15) Koppla VLAN till skrivare**: välj vilka VLAN en enskild skrivare ska tillåta.
+- **16) Ta bort VLAN från skrivare**: ta bort en VLAN-koppling för vald skrivare.
+- **17) Visa VLAN-kopplingar för skrivare**: visa vilka VLAN vald skrivare är kopplad till.
+- **18) Importera/synka från cupsd.conf**: läser `Allow from ...` ur CUPS Location-block och importerar till databasen.
+- **q) Avsluta**: stänger menyn.
+
+### VLAN-databas (lokal, auto-skapas)
+
+`servicectl.sh` använder en lokal SQLite-databas för VLAN-hantering per skrivare:
+
+- Databasfil: `/srv/printserver/data/vlans.db`
+- Skapas automatiskt om den saknas när VLAN-funktioner används.
+- Datamodell:
+  - `vlans` (namn + CIDR)
+  - `printer_vlans` (koppling mellan skrivare och VLAN)
+
+När VLAN kopplas/ändras/tas bort för en skrivare regenereras motsvarande `<Location /printers/...>`-block i `/etc/cups/cupsd.conf` automatiskt.
 
 ## Städning av fastnade jobb (viktigast)
 

@@ -6,6 +6,8 @@ logs/*
 !logs/.gitkeep
 data/*
 !data/.gitkeep
+data/vlans.db
+data/*.db-*
 
 *.log
 *.sqlite
