@@ -61,17 +61,6 @@ printer_exists() {
     lpstat -p "$1" &>/dev/null
 }
 
-ensure_default_vlans() {
-    ensure_db || return 1
-    sqlite3 "$DB_PATH" <<'SQL'
-INSERT OR IGNORE INTO vlans(name, cidr, created_at, updated_at) VALUES ('Lärare','172.31.53.0/24',datetime('now'),datetime('now'));
-INSERT OR IGNORE INTO vlans(name, cidr, created_at, updated_at) VALUES ('TRC','172.31.10.0/24',datetime('now'),datetime('now'));
-INSERT OR IGNORE INTO vlans(name, cidr, created_at, updated_at) VALUES ('Management','172.31.0.0/21',datetime('now'),datetime('now'));
-INSERT OR IGNORE INTO vlans(name, cidr, created_at, updated_at) VALUES ('AREA54','172.31.64.0/21',datetime('now'),datetime('now'));
-INSERT OR IGNORE INTO vlans(name, cidr, created_at, updated_at) VALUES ('Gäster','172.31.80.0/20',datetime('now'),datetime('now'));
-SQL
-}
-
 list_vlans() {
     ensure_db || return 1
     echo "ID | Namn | CIDR"
@@ -248,7 +237,7 @@ vlan_catalog_menu() {
                 ;;
             2)
                 read -p "VLAN-namn: " vlan_name
-                read -p "CIDR (t.ex. 172.31.10.0/24): " vlan_cidr
+                read -p "CIDR (t.ex. 192.168.0.0/24): " vlan_cidr
                 valid="$(is_valid_cidr "$vlan_cidr")"
                 [ "$valid" = "1" ] || { echo -e "${YELLOW}⚠ Ogiltig CIDR.${RESET}"; continue; }
                 escaped_name="$(sql_escape "$vlan_name")"
@@ -335,35 +324,6 @@ import_vlans_from_cupsd_menu() {
     done < <(sudo cat "$CUPSD_CONF")
     created="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM vlans WHERE name LIKE 'IMPORTED_%';")"
     echo -e "${GREEN}✓ Import klar. IMPORTED-VLAN totalt: $created. Kopplingsförsök: $linked.${RESET}"
-}
-
-link_default_vlans_for_type() {
-    local printer_name="$1"
-    local printer_type="$2"
-    local default_names_csv
-    local ids=()
-    local name trimmed id
-    case "$printer_type" in
-        TEG) default_names_csv="Lärare,TRC,Management,AREA54,Gäster" ;;
-        AREA53) default_names_csv="Lärare,TRC,Management" ;;
-        TRC) default_names_csv="TRC,Management" ;;
-        *) return 1 ;;
-    esac
-    IFS=',' read -ra names <<< "$default_names_csv"
-    for name in "${names[@]}"; do
-        trimmed="$(echo "$name" | xargs)"
-        id="$(sqlite3 "$DB_PATH" "SELECT id FROM vlans WHERE name='$(sql_escape "$trimmed")' LIMIT 1;")"
-        if [ -n "$id" ]; then
-            ids+=("$id")
-        else
-            echo -e "${YELLOW}⚠ VLAN \"$trimmed\" saknas i databasen. Lägg till i VLAN-katalogen och koppla manuellt.${RESET}"
-        fi
-    done
-    if [ ${#ids[@]} -eq 0 ]; then
-        return 1
-    fi
-    link_vlans_to_printer "$printer_name" "$(IFS=,; echo "${ids[*]}")"
-    return 0
 }
 
 while true; do
@@ -463,7 +423,7 @@ while true; do
             sudo python3 /srv/printserver/scripts/list_jobs_with_age.py
             ;;
         10)
-            ensure_default_vlans || { echo -e "${YELLOW}⚠ Kan inte fortsätta utan SQLite-databas.${RESET}"; continue; }
+            ensure_db || { echo -e "${YELLOW}⚠ Kan inte fortsätta utan SQLite-databas.${RESET}"; continue; }
             echo -e "${CYAN}→ Lägg till ny skrivare${RESET}"
             read -p "Ange IP-adress till skrivaren: " printer_ip
             if ! timeout 5 bash -c "echo >/dev/tcp/$printer_ip/631" 2>/dev/null; then
@@ -496,11 +456,8 @@ while true; do
                     echo -e "${YELLOW}lpadmin misslyckades – skrivaren lades inte till.${RESET}"
                 else
                     sleep 5
-                    if link_default_vlans_for_type "$printer_name" "$selected_type"; then
-                        sync_location_block_for_printer "$printer_name"
-                    else
-                        echo -e "${YELLOW}⚠ Inga standard-VLAN kunde kopplas automatiskt. Koppla VLAN manuellt via menyval 15.${RESET}"
-                    fi
+                    echo -e "${YELLOW}→ Ingen automatisk default-VLAN kopplas vid skapande.${RESET}"
+                    echo -e "${YELLOW}→ Koppla VLAN manuellt via menyval 15 eller importera från cupsd.conf via menyval 18.${RESET}"
                     sudo cupsenable "$printer_name" 2>/dev/null || true
                     echo -e "${GREEN}✓ Skrivaren $printer_name är tillagd.${RESET}"
                 fi
