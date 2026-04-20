@@ -112,18 +112,18 @@ sudo python3 /srv/printserver/scripts/list_jobs_with_age.py
 
 ## Nätverk / VLAN
 
-Vid **Lägg till ny skrivare** (meny 10) i `servicectl.sh` väljer man skrivartyp; varje typ styr vilka nät som får åtkomst (CUPS Location-block):
+Vid **Lägg till ny skrivare** (meny 10) i `servicectl.sh` väljer man skrivartyp; varje typ styr vilka VLAN som får åtkomst (CUPS Location-block):
 
-- **TEG** – jobb hålls tills release; åtkomst från: 172.31.53.0/24, 172.31.10.0/24, 172.31.0.0/21, 172.31.64.0/21, 172.31.80.0/20
-- **AREA53** – åtkomst från: 172.31.53.0/24, 172.31.10.0/24, 172.31.0.0/21
-- **TRC** – VLAN 10 + 172.31.0.0/21 (åtkomst från 172.31.10.0/24 och 172.31.0.0/21); skriver direkt som personal, ingen QR-release
+- **TEG** – jobb hålls tills release; åtkomst från: Lärare, TRC, Management, AREA54 och Gäster
+- **AREA53** – åtkomst från: Lärare, TRC och Management
+- **TRC** – åtkomst från: TRC och Management; skriver direkt som personal, ingen QR-release
 
-För att servern ska kunna nå skrivare i VLAN 10 (172.31.10.0/24) krävs att maskinen har nätverksåtkomst till det nätet, t.ex.:
+För att servern ska kunna nå skrivare i **TRC** krävs att maskinen har nätverksåtkomst till TRC, t.ex.:
 
-- Ett nätverksgränssnitt med adress i 172.31.10.0/24 (VLAN-interface eller eget nät), eller
-- Routing så att 172.31.10.0/24 är nåbart från servern.
+- Ett nätverksgränssnitt i VLAN TRC (VLAN-interface eller eget nät), eller
+- Routing så att TRC är nåbart från servern.
 
-Skrivare som lades till *före* att VLAN 10 lades in har inte nödvändigtvis `Allow from 172.31.10.0/24` i `/etc/cups/cupsd.conf`. Lägg då till en rad `Allow from 172.31.10.0/24` i respektive `<Location /printers/Könamn>`-block och starta om CUPS.
+Skrivare som lades till *före* att VLAN TRC lades in har inte nödvändigtvis `Allow from xxx.xxx.xxx.xxx/xx` i `/etc/cups/cupsd.conf`. Lägg då till en rad `Allow from xxx.xxx.xxx.xxx/xx` i respektive `<Location /printers/Könamn>`-block och starta om CUPS.
 
 **Make and Model / "Local Raw Printer":** Skriptet lägger till skrivare med `-m everywhere` (IPP Everywhere). Om en skrivare ändå visar "Local Raw Printer" i CUPS-webben använd **meny 13** i `servicectl.sh` (byter till IPP Everywhere med URI satt på nytt – det behövs ibland). Efteråt: ladda om CUPS-webben med **Ctrl+F5** (hard refresh) så att "Make and Model" uppdateras. Manuellt: `sudo lpadmin -p <könamn> -v "ipp://IP/ipp/print" -m everywhere -E` (samma URI som skrivaren redan har).
 
