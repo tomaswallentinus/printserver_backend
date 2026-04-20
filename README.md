@@ -149,3 +149,41 @@ Variabelnamnet ska vara:
 API_TOKEN=<ditt_losenord>
 ```
 
+## Webservice som systemd-tjänst
+
+Exempel på systemd-enhet för webservice (`/etc/systemd/system/printapi.service`):
+
+```ini
+[Unit]
+Description=Flask Print API
+After=network.target
+
+[Service]
+User=cupsadmin
+WorkingDirectory=/srv/printserver/scripts
+EnvironmentFile=/srv/printserver/.env
+ExecStart=/usr/bin/python3 /srv/printserver/scripts/webservice.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Ladda om, aktivera och starta tjänsten:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable printapi.service
+sudo systemctl restart printapi.service
+```
+
+Snabb felsökning/verifiering:
+
+```bash
+sudo systemctl status printapi.service --no-pager
+sudo journalctl -u printapi.service -n 100 --no-pager
+ss -lntp | grep :5000
+```
+
