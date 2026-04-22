@@ -205,6 +205,24 @@ För att servern ska kunna nå skrivare i **TRC** krävs att maskinen har nätve
 
 Skrivare som lades till *före* att VLAN TRC lades in har inte nödvändigtvis `Allow from xxx.xxx.xxx.xxx/xx` i `/etc/cups/cupsd.conf`. Lägg då till en rad `Allow from xxx.xxx.xxx.xxx/xx` i respektive `<Location /printers/Könamn>`-block och starta om CUPS.
 
+### Felsökning vid VLAN-accessproblem
+
+Om en klient får `Forbidden` på en skrivarkö trots att rätt VLAN verkar tillåtet i `cupsd.conf`, kontrollera vilken käll-IP CUPS faktiskt ser.
+
+1) Sniffa trafik till CUPS-porten:
+
+```bash
+sudo tcpdump -ni any port 631
+```
+
+2) Följ access-loggen samtidigt:
+
+```bash
+sudo tail -f /var/log/cups/access_log
+```
+
+Om CUPS ser en annan käll-IP än väntat (t.ex. p.g.a. NAT), måste `Allow from`-reglerna matcha den IP/nätmasken eller nätvägen justeras så att klientens riktiga VLAN-IP syns.
+
 **Make and Model / "Local Raw Printer":** Skriptet lägger till skrivare med `-m everywhere` (IPP Everywhere). Om en skrivare ändå visar "Local Raw Printer" i CUPS-webben använd **meny 13** i `servicectl.sh` (byter till IPP Everywhere med URI satt på nytt – det behövs ibland). Efteråt: ladda om CUPS-webben med **Ctrl+F5** (hard refresh) så att "Make and Model" uppdateras. Manuellt: `sudo lpadmin -p <könamn> -v "ipp://IP/ipp/print" -m everywhere -E` (samma URI som skrivaren redan har).
 
 **Vissa HP-skrivare (t.ex. Color LaserJet E45028)** returnerar tomma strängar för IPP-attribut som `output-bin-default`, `media-type-default` eller `hp-easycolor-default`. Det bryter mot RFC 8011 (keyword får inte vara tom), så CUPS och ipptool rapporterar fel och skrivaren visas som "Local Raw Printer". Utskrift fungerar normalt med raw-kön. Eventuell firmwareuppdatering från HP kan åtgärda IPP-svaren.
